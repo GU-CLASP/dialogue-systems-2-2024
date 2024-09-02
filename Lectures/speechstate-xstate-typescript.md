@@ -223,7 +223,17 @@ Sequence diagram](https://github.com/vladmaraev/speechstate?tab=readme-ov-file#s
 It is nice to type actions as well, and define them in `setup()`:
 [Actions & TypeScript](https://stately.ai/docs/actions#actions-and-typescript).
 
-[video goes here]
+
+
+
+https://github.com/user-attachments/assets/8b8c4b24-cb26-4408-9a55-0cdb20687008
+
+https://github.com/user-attachments/assets/fdc73a02-a590-4ae6-a4db-b2527d15295f
+
+https://github.com/user-attachments/assets/efdec72f-f806-4579-a9c0-ed6cf2f6ef0c
+
+
+
 
 
 <a id="orgfd64286"></a>
