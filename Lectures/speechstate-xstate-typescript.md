@@ -166,17 +166,34 @@ going to turn it into TypeScript files and fix the errors.
 ## Fixing the TypeScript errors
 
 1.  `./src/main.ts`
-    [video goes here]
-2.  `./src/dm.ts`
+
+    https://github.com/user-attachments/assets/2ef63507-1874-47df-8786-b175da72129e
+
+3.  `./src/dm.ts`
     -   adding azure key
-        [video goes here]
+
+        https://github.com/user-attachments/assets/61f382a6-8d33-4ead-bb00-f3ef84cc7ae6
+        
     -   typing global constants and functions
-        [video goes here]
+
+        https://github.com/user-attachments/assets/9c007738-37ba-41c5-8884-4322223c54dc
+        
+        https://github.com/user-attachments/assets/b65f6ee4-3164-4903-9b89-cc60a1a35444
+        
     -   typing context and events
-        [video goes here]
+
+        https://github.com/user-attachments/assets/8a32dd3b-cda9-4674-83b9-0b7a7b35c50e
+
+    -   Other errors:
+
+        https://github.com/user-attachments/assets/e4681a78-50f5-499f-a861-e4ec8266adbe
+        
     -   Fixing `Uncaught TypeError: snapshot.value.AsrTtsManager` aka getting SpeechState meta values
-        [video goes here]
-3.  Now everything works!
+
+        https://github.com/user-attachments/assets/7a951435-1787-4477-b1ee-8b068bcbe6b9
+
+       
+4.  Now everything works!
 
 
 <a id="org0f8f317"></a>
