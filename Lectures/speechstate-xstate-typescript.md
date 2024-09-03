@@ -13,10 +13,8 @@
     2.  [Fixing the TypeScript errors](#org653d39c)
 4.  [SpeechState, XState (now with TypeScript)](#org0f8f317)
     1.  [Interaction with SpeechState](#org266592a)
-    2.  [States, events and transitions](#org4b7ad1e)
     3.  [Actions](#org6265d1a)
     4.  [Assign action](#orgfd64286)
-    5.  [Invoke (next time)](#orga31dae3)
 
 
 
@@ -24,7 +22,9 @@
 
 # Introduction
 
-[video goes here]
+https://github.com/user-attachments/assets/687740e4-d856-4f6e-99b5-694f74a342b8
+
+
 
 
 <a id="org5f1a0b0"></a>
@@ -45,21 +45,48 @@
 
 ## Basic example
 
-`"1"+1`
-(video goes here)
-
+-  Open the [JavaScript console](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools#the_javascript_console) in the    browser. For Firefox it is Cmd+Opt+I (macOS) or Control-Shift-K (Windows). 
+-  Define a function that adds two numbers.
+   ```javascript
+   function add(a, b) {
+       return a + b
+   }
+   ```
+-  Now try to run it with different arguments, i.e. `add(1,2)`, `add(1,"2")`, `add(1)`, `add("1")`, `add()`, `add(1,false)`, `add(1,true)`, `add(1,{})`, `add(1, [])` etc.
+-  Note the unexpected behaviour.
+-  In this tutorial you will learn how to make the evaluation of such functions more predictable, by putting some restrictions during the compilation of your code.
 
 <a id="org83a627f"></a>
 
 ## Recap: defining functions with `const`.
 
-(video goes here)
+Next step will be to read the Total TypeScript book, but first: do you remember these 2 ways of defining functions?
+
+   ```javascript
+   function add(a, b) {
+       return a + b
+   }
+   ```
+
+essentially, is equivalent to 
+```javascript
+const add = (a, b) => {
+       return a + b
+   }
+```
+
+and even:
+```javascript
+const add = (a, b) => (a + b)   
+```
 
 
 <a id="org8df84ad"></a>
 
 ## Now: [Total TypeScript free book](https://www.totaltypescript.com/books/total-typescript-essentials/) (Chapters 1-6)
 
+Please read the book carefully, and follow the examples. 
+It will help you set up your development environment and learn essentials of TypeScript.
 
 <a id="orga912e78"></a>
 
@@ -154,7 +181,7 @@ going to turn it into TypeScript files and fix the errors.
     
     -   run `yarn install` to install the dependencies
 
-3.  Now create `src` folder and move `dm.js`, `main.js`, `style.css` from
+3.  Now create `src` folder and move `dm.js`, `main.js` from
     [Dialogue Systems 1 starter code](https://github.com/GU-CLASP/dialogue-systems-1-2024/tree/main/Code) there. Rename both `.js` files to
     `.ts`.
 
@@ -213,11 +240,6 @@ Sequence diagram](https://github.com/vladmaraev/speechstate?tab=readme-ov-file#s
 
 <a id="org4b7ad1e"></a>
 
-## States, events and transitions
-
-
-<a id="org6265d1a"></a>
-
 ## Actions
 
 It is nice to type actions as well, and define them in `setup()`:
@@ -240,8 +262,14 @@ https://github.com/user-attachments/assets/efdec72f-f806-4579-a9c0-ed6cf2f6ef0c
 
 ## Assign action
 
+Remind yourself about the [Assign action](https://stately.ai/docs/actions#assign-action).
 
 <a id="orga31dae3"></a>
 
-## Invoke (next time)
+## Exercise
+Now, a small exercise:
+1. Extend your context with `noinputCounter` that will count the times there was no input from the user.
+2. Define an action in `setup()` that will increment the counter.
+3. If there is no input, your program should say "I didn't hear you", and next time "I didn't hear you for the second time", etc. Note: You should get a suggestion of the SpeechState event that you are going to use from your text editor. 
+
 
