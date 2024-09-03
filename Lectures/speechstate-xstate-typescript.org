@@ -1,14 +1,7 @@
 #+TITLE: TypeScript, SpeechState, XState
 
 * Introduction
-[video goes here]
-
-** COMMENT script
-- TypeScript will help you with more complex code
-- You need to learn the basics from the TotalTypeScript book
-- In this course you will have 3 modules: Information-state update, LLMs for dialogue systems and Multimodality
-- You will be using state charts for all of them. 
-- And you will be using TypeScript, because it will give you more control.
+https://github.com/user-attachments/assets/687740e4-d856-4f6e-99b5-694f74a342b8
 
 * TypeScript
 
@@ -18,13 +11,45 @@
 - Have better control over your state machine.
 
 ** Basic example
-~"1"+1~
-(video goes here)
+1) Open the [[https://developer.mozilla.org/en-US/docs/Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools#the_javascript_console][JavaScript console]] in the browser. For Firefox it is
+   Cmd+Opt+I (macOS) or Control-Shift-K (Windows).
+2) Define a function that adds two numbers.
+   
+   #+begin_src javascript
+   function add(a, b) {
+       return a + b
+   }
+   #+end_src
+   
+3) Now try to run it with different arguments, i.e. ~add(1,2)~, ~add(1,"2")~, ~add(1)~, ~add("1")~, ~add()~, ~add(1,false)~, ~add(1,true)~, ~add(1,{})~, ~add(1, [])~ etc.
+4) Note the unexpected behaviour.
+5) In this tutorial you will learn how to make the evaluation of such functions more predictable, by putting some restrictions during the compilation of your code.
 
 ** Recap: defining functions with ~const~.
-(video goes here)
+Next step will be to read the Total TypeScript book, but first: do you remember these 2 ways of defining functions?
+
+   #+begin_src javascript
+   function add(a, b) {
+       return a + b
+   }
+   #+end_src
+
+essentially, is equivalent to 
+   #+begin_src javascript
+   const add = (a, b) => {
+       return a + b
+   }
+   #+end_src
+
+and even:
+   #+begin_src javascript
+   const add = (a, b) => (a + b)   
+   #+end_src
 
 ** Now: [[https://www.totaltypescript.com/books/total-typescript-essentials/][Total TypeScript free book]] (Chapters 1-6)
+Please read the book carefully, and follow the examples. 
+It will help you set up your development environment and learn essentials of TypeScript.
+
 ** Prettier
 *Prettier* will make your code look much nicer and also help avoiding
 errors, i.e. with balancing brackets. Enable it every time you save
@@ -37,7 +62,7 @@ going to turn it into TypeScript files and fix the errors.
 
 ** Preparation
 
-1. We will start with by adding these files to en empty folder, defined in [[https://stately.ai/docs/templates][XState template]].
+1. We will start with by adding these files to en empty folder, defined in [[https://stately.ai/docs/templates][XState template]] (slightly modified).
 
   ~package.json~:
  #+begin_src json
@@ -87,7 +112,7 @@ going to turn it into TypeScript files and fix the errors.
   }
   #+end_src
   
-    ~index.ts~:
+    ~index.html~:
   #+begin_src html
   <!doctype html>
   <html lang="en">
@@ -111,27 +136,44 @@ going to turn it into TypeScript files and fix the errors.
 
    - run ~yarn install~ to install the dependencies
 
-3. Now create ~src~ folder and move ~dm.js~, ~main.js~, ~style.css~ from
-   [[https://github.com/GU-CLASP/dialogue-systems-1-2024/tree/main/Code][Dialogue Systems 1 starter code]] there. Rename both ~.js~ files to
-   ~.ts~.
+3. Now create ~src~ folder and move ~dm.js~ and ~main.js~ from [[https://github.com/GU-CLASP/dialogue-systems-1-2024/tree/main/Code][Dialogue
+   Systems 1 starter code]] there. Rename both ~.js~ files to ~.ts~.
 
 4. Now let's look at the errors.
 
 
 ** Fixing the TypeScript errors
 1. ~./src/main.ts~
-   [video goes here]
+
+    https://github.com/user-attachments/assets/2ef63507-1874-47df-8786-b175da72129e1.
+
 2. ~./src/dm.ts~
    - adding azure key
-     [video goes here]
+
+     https://github.com/user-attachments/assets/61f382a6-8d33-4ead-bb00-f3ef84cc7ae6
+
    - typing global constants and functions
-     [video goes here]
+
+     https://github.com/user-attachments/assets/9c007738-37ba-41c5-8884-4322223c54dc
+
+     https://github.com/user-attachments/assets/b65f6ee4-3164-4903-9b89-cc60a1a35444
+
    - typing context and events
-     [video goes here]
+
+     https://github.com/user-attachments/assets/8a32dd3b-cda9-4674-83b9-0b7a7b35c50e
+
+   - other errors...
+
+     https://github.com/user-attachments/assets/e4681a78-50f5-499f-a861-e4ec8266adbe 
+
+   - Now you can run your program: ~yarn dev~
+
    - Fixing ~Uncaught TypeError: snapshot.value.AsrTtsManager~ aka getting SpeechState meta values
-     [video goes here]
+
+     https://github.com/user-attachments/assets/7a951435-1787-4477-b1ee-8b068bcbe6b9
+
 3. Now everything works!
-     
+
 
 * SpeechState, XState (now with TypeScript)
 [[https://stately.ai/docs/machines#machines-and-typescript][XState docs]]
@@ -140,16 +182,32 @@ going to turn it into TypeScript files and fix the errors.
 [[https://github.com/vladmaraev/speechstate?tab=readme-ov-file#sequence-diagrams][
 Sequence diagram]]
 
-** States, events and transitions
+** COMMENT States, events and transitions
 
 
 ** Actions
 It is nice to type actions as well, and define them in ~setup()~:
 [[https://stately.ai/docs/actions#actions-and-typescript][Actions & TypeScript]].
 
-[video goes here]
+https://github.com/user-attachments/assets/8b8c4b24-cb26-4408-9a55-0cdb20687008
 
+https://github.com/user-attachments/assets/fdc73a02-a590-4ae6-a4db-b2527d15295f
+
+https://github.com/user-attachments/assets/efdec72f-f806-4579-a9c0-ed6cf2f6ef0c
 
 
 ** Assign action
-** Invoke (next time)
+
+Remind yourself about the [[https://stately.ai/docs/actions#assign-action][Assign action]].
+
+
+
+** COMMENT Invoke (next time)
+
+** Exercise
+
+Now, a small exercise:
+1. Extend your context with ~noinputCounter~ that will count the times there was no input from the user.
+2. Define an action in ~setup()~ that will increment the counter.
+3. If there is no input, your program should say "I didn't hear you", and next time "I didn't hear you for the second time", etc. Note: You should get a suggestion of the SpeechState event that you are going to use from your text editor. 
+
