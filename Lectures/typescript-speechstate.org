@@ -145,7 +145,8 @@ going to turn it into TypeScript files and fix the errors.
 ** Fixing the TypeScript errors
 1. ~./src/main.ts~
 
-    https://github.com/user-attachments/assets/2ef63507-1874-47df-8786-b175da72129e1.
+    https://github.com/user-attachments/assets/494a6dbb-149b-4f5b-979a-81e7d3847ad8
+
 
 2. ~./src/dm.ts~
    - adding azure key
