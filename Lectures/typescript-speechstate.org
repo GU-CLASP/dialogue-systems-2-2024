@@ -136,7 +136,7 @@ going to turn it into TypeScript files and fix the errors.
 
    - run ~yarn install~ to install the dependencies
 
-3. Now create ~src~ folder and move ~dm.js~ and ~main.js~ from [[https://github.com/GU-CLASP/dialogue-systems-1-2024/tree/main/Code][Dialogue
+3. Now create ~src~ folder and move ~style.css~, ~dm.js~ and ~main.js~ from [[https://github.com/GU-CLASP/dialogue-systems-1-2024/tree/main/Code][Dialogue
    Systems 1 starter code]] there. Rename both ~.js~ files to ~.ts~.
 
 4. Now let's look at the errors.
