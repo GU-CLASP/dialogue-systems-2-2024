@@ -9,7 +9,7 @@ SISU contains a partial implementation of IBiS1, and a simple domain. To underst
 * Task 1: Make system answer depend on day
 Extend the implementation so that after the user has answered the "Which course?" question, the system asks "Which day?". If the user answers "Monday", the system answers that the lecture is in G212; if the user answers "Thursday", the system answers that the lecture is in J440.
 
-
+This task involves modifying/extending the domain (in ~src/is.ts~) as well as NLU and NLG (in ~src/nlug.ts~).
 
 * Task 2a: Negative semantic understanding feedback
 Extend the implementation so that when the user utters something that is not understood by the NLU, the system utters "Sorry, I don't understand."
