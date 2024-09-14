@@ -1,0 +1,160 @@
+#+TITLE: Promise, fetch, invoke and LLMs
+* Introduction
+
+https://github.com/user-attachments/assets/f10cc253-3c17-42c4-a63e-a9f280d4bb48
+
+Learning objectives:
+1. Learn how to use Ollama library for running LLMs.
+2. Write your first API client in JavaScript
+   - Learn how to use Promise object
+   - Learn how to use Fetch API
+3. Make this client a part of your state chart
+   - Learn about invoking actors from your state machine
+   - Learn how to ~invoke~ an API client 
+   - Add types to your ~invoke~ actor.
+  
+* Ollama
+
+[[https://github.com/ollama/ollama/][Ollama]] allows running many different LLMs locally. We have it
+installed at mltgpu, but you can also get it up and running on your
+own machine. You can connect to mltgpu's ollama with this command:
+
+#+begin_src sh
+ssh -f -N -L 11434:localhost:11434 mltgpu
+#+end_src
+
+This command creates a background process which forward the port 11434
+of mltgpu server to your local port 11434, thus enabling the access to
+ollama API. [[https://github.com/ollama/ollama/blob/main/docs/api.md][This document]] describes ollama's Application Programming
+Interface (API). 
+
+It assumes that you have a record for mltgpu in ~.ssh/config~ and are
+accessing it using your SSH key (highly recommended!). If you don't
+have it set up, you can either use full server address instead of
+~mltgpu~ above and your password, or ask me how to do it on Discord.
+
+I recommend you to add alias for this command:
+#+begin_src sh
+alias mltgpu_ollama='ssh -f -N -L 11434:localhost:11434 mltgpu'  
+#+end_src
+and just run ~mltgpu_ollama~ to connect to ollama API.
+
+Now check if you are connected. This command
+#+begin_src sh
+curl http://localhost:11434/api/tags  
+#+end_src
+should return a list of available models.
+
+You can use [[https://github.com/ollama/ollama/blob/main/README.md#community-integrations][plenty of different desktop]] clients to explore the ollama
+models.
+
+* Promise
+#+begin_quote
+Documentation: 
+- https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+#+end_quote
+
+https://github.com/user-attachments/assets/2efed5cf-539b-42d9-878c-2f54c5afeacd
+
+- A function that returns promise
+#+begin_src javascript
+  const setTimer = (t) =>
+    new Promise((resolve, reject) =>
+      setTimeout(() => {
+        resolve("It's about time!");
+      }, t),
+    );
+#+end_src
+
+- Invoking the function (that's when the timer gets set!)
+#+begin_src javascript
+  // message is anything we get from "resolve"
+  setTimer(5000).then((message) => {
+    console.log("Yay!", message);
+  });
+#+end_src
+* Fetch
+
+#+begin_quote
+Documentation:
+- https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+- https://github.com/ollama/ollama/blob/main/docs/api.md
+#+end_quote
+
+https://github.com/user-attachments/assets/12d58585-3ab6-421a-bcaf-03c5f90a8d83
+
+Note: To test this in your browser, open your XState app at http://localhost:5173/.
+
+1. Define your function that will return ~fetch~ promise.
+  #+begin_src javascript
+    const fetchModels = () =>
+      fetch("http://localhost:11434/api/tags").then((response) => response.json());
+  #+end_src
+2. To wait before the promise is fulfilled, use ~await~ keyword:
+  #+begin_src javascript
+  await fetchModels()
+  // -> Object []
+  #+end_src
+3. This was a default usage of ~fetch()~, but it can also take various
+   parameters, i.e. it can use a [[https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods][POST request method]] and contain
+   a payload. That's how we can generate chat completions from ollama.
+
+  #+begin_src javascript
+    const fetchCompletions = () => {
+      const body = {
+        model: "llama3.1",
+        stream: false,
+        messages: [
+          {
+            role: "user",
+            content: "why is the sky blue?",
+          },
+        ],
+      };
+      return fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((response) => response.json());
+    };
+  #+end_src
+4. After you run this function the first, it might take a few minutes
+   to fullfill, because ollama will need to load the model. Subsequent
+   calls will be much faster.
+
+   In response, you should get an object which contains a ~message~
+   field, which would be an actual response of the LLM.
+   
+* XState and invoke
+#+begin_quote
+Documentation:
+- https://stately.ai/docs/invoke
+- https://stately.ai/docs/invoke#invoking-promises
+- https://stately.ai/docs/invoke#invoke-and-typescript
+- https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map
+#+end_quote
+
+XState machines can invoke another actors, such as other machines as
+well as Promise actors, which lifetime is limited to a particular
+state from which they are invoked.
+
+Now when we learned how to ~fetch~ available ollama models, let's turn
+it into an ~invoke~.
+
+https://github.com/user-attachments/assets/57ca024c-32d6-41dd-aa1d-ee10f52e84c1
+
+https://github.com/user-attachments/assets/ca3a23b3-1823-4d35-af17-d4b9a005faa4
+
+https://github.com/user-attachments/assets/8e4c3ff1-2b3f-4f4b-8e8a-4d027bf09647
+
+https://github.com/user-attachments/assets/cc805614-2180-4a53-8545-07f51d71ae92
+
+
+
+* Exercise
+1. Implement another actor which will be able to reply to an arbitrary
+   prompt provided as ~input~ parameter. You would need to
+   modify the ~fetchCompletions~ example above, such that the content of
+   the message (there it is ~"why is the sky blue"~) is taken from the
+   input.
+2. Invoke this actor in your state machine to generate a short greeting. The prompt should be provided in place, as an ~input~ parameter of ~invoke~.
+3. Start your dialogue with this greeting.

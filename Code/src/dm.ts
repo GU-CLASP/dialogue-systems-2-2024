@@ -1,4 +1,4 @@
-import { AnyActorRef, assign, createActor, setup } from "xstate";
+import { AnyActorRef, assign, createActor, fromPromise, setup } from "xstate";
 import { speechstate, SpeechStateExternalEvent } from "speechstate";
 import { createBrowserInspector } from "@statelyai/inspect";
 import { KEY } from "./azure";
@@ -45,6 +45,7 @@ function getPerson(utterance: string) {
 
 interface MyDMContext extends DMContext {
   noinputCounter: number;
+  availableModels?: string[];
 }
 interface DMContext {
   count: number;
@@ -79,6 +80,13 @@ const dmMachine = setup({
       return { noinputCounter: context.noinputCounter + params.value };
     }),
   },
+  actors: {
+    get_ollama_models: fromPromise<any, null>(async () => {
+      return fetch("http://localhost:11434/api/tags").then((response) =>
+        response.json()
+      );
+    }),
+  },
 }).createMachine({
   context: ({ spawn }) => ({
     count: 0,
@@ -99,12 +107,34 @@ const dmMachine = setup({
       },
     },
     PromptAndAsk: {
-      initial: "Prompt",
+      initial: "GetModels",
       states: {
+        GetModels: {
+          invoke: {
+            src: "get_ollama_models",
+            input: null,
+            onDone: {
+              target: "Prompt",
+              actions: assign(({ event }) => {
+                console.log(event.output);
+                return {
+                  availableModels: event.output.models.map((m: any) => m.name),
+                };
+              }),
+            },
+            onError: {
+              actions: () => console.error("no models available"),
+            },
+          },
+        },
         Prompt: {
           entry: {
             type: "speechstate_speak",
-            params: { value: "Hello world" },
+            params: ({ context }) => ({
+              value: `Hello world! Available models are: ${context.availableModels!.join(
+                " "
+              )}`,
+            }),
           },
           on: { SPEAK_COMPLETE: "Ask" },
         },
