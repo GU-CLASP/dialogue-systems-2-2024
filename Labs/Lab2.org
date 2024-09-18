@@ -5,7 +5,7 @@ In this lab you will explore how LLMs can be used in XState and
 SpeechState. Additionally, you will practice the usage of external web
 services to access remote APIs.
 
-* Part 0. Make sure you solved the exercise from [[file:./Lectures/promise-invoke-llm.org][the tutorial]] 
+* Part 0. Make sure you have solved the exercise from [[file:../Lectures/promise-invoke-llm.org][the tutorial]] 
 
 * Part 1: Chit-chat with SpeechState
 
