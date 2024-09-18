@@ -1,0 +1,112 @@
+#+OPTIONS: toc:t num:nil
+#+TITLE: Lab 2. LLMs for dialogue systems
+
+In this lab you will explore how LLMs can be used in XState and
+SpeechState. Additionally, you will practice the usage of external web
+services to access remote APIs.
+
+* Part 0. Make sure you solved the exercise from [[file:./Lectures/promise-invoke-llm.org][the tutorial]] 
+
+* Part 1: Chit-chat with SpeechState
+
+In this part you will create a voice-enabled chatbot. 
+
+1. Fork this repository.
+2. In your code implement a following ISU-inspired pattern which will help you maintain the history of your dialogue. This will make the chat less repetitive.
+   - Intoduce ~messages: Message[]~ into your context, where ~Message~ is:
+     #+begin_src typescript
+     interface Message {
+       role: "assistant" | "user" | "system";
+       content: string;
+     }
+     #+end_src
+   - You will be adding every recognised utterance (user) and every result from the LLM (assistant) as a element to the ~messages~ array. 
+   - You will be using  ~messages~ as a part of your [[https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion][chat completions]] API calls.
+3. You can add a starting ~system~ message that will act as initial
+   prompt to the LLM, for instance, instructing it to provide very
+   brief chat-like responses.
+4. Modify the ~fetch~ actor from exercise to provide chat completions on
+   the basis of the ~messages~.
+5. Invoke this actor in order to implement an infinite completion
+   loop. You can refer to the diagram below (some details omitted) or
+   modify it according to your own perspective.
+  #+begin_src plantuml :results output replace file :file img/completion.svg :exports results :tangle statechart.plantuml
+  @startuml
+  state Loop
+  [*] --> Greeting
+  state Greeting {
+    [*] --> GenerateGreeting
+    state "Prompt" as p
+    state "Ask" as a
+    GenerateGreeting: invoke(chatCompletion)
+    GenerateGreeting --> p: onDone\n \\append(event.output,messages)
+    p: **entry:** speak(lastMessage)
+    p --> a: SPEAK_COMPLETE
+    a: **entry:** listen  
+  }
+  Greeting -> Loop: RECOGNISED\n \\append(event.result,messages)
+
+  state Loop {
+    [*] --> ChatCompletion
+    ChatCompletion: invoke(generateGreeting)
+    ChatCompletion --> Prompt: onDone\n \\append(event.output,messages)
+    Prompt: **entry:** speak(lastMessage)
+    Prompt --> Ask: SPEAK_COMPLETE
+    Ask: **entry:** listen
+  }
+  Loop -> Loop: RECOGNISED\n \\append(event.result,messages)
+
+  #+end_src
+  Note: ~/append(...)~ is a shorthand for ~assign~ action which appends a new message to the list of messages.
+  #+RESULTS:
+  [[file:img/completion.svg]]
+  
+6. When this is done you should be able to have a chat with your LLM!
+
+* Part 2: Exploration
+You can do either of the two options, depending on your project plans.
+
+** Option 1: further experiments with chit-chat LLM
+ 
+1. Implement handling of ~ASR_NOINPUT~.
+2. Feel free to experiment! For instance:
+   - You can adjust options in the [[https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion][API call]] (such as temperature),
+     see [[https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values][available parameters]].
+   - You can try [[https://ollama.com/library][other models]], i.e. Zephyr or Gemma2.
+   - Optionally, you can also try ChatGPT (let us know if you need an API key). In this case you can modify your chat completion interface, in a way that [[https://github.com/ollama/ollama/blob/main/docs/openai.md][it is compatible both with local models and ChatGPT]].
+3. In your report provide a short summary of strength and weaknesses
+   of your approach.
+   
+** Option 2: rule-based dialogue
+1. You will need to create a use-case for using LLMs in a rule-based
+   dialogue in SpeechState.
+   - For instance, you can implement an NLU prompt, asking for intents
+     and entities for user input. Hint: you can ask a LLM to return
+     structured data (i.e. JSON objects) which you then can parse.
+2. You need to show that the information that you receive from the LLM
+   is processed and further used by your application.
+3. Provide a proof-of-concept implementation.
+4. You can think of different scenarios which make a LLM useful, for
+   instance, grounding or language generation.
+   
+** Report
+Provide a short report (max 1 A4 page; PDF, Markdown or org-mode
+format) about your experiments. Commit it to your fork into the root
+directory.
+
+
+* Submission
+Report the lab by submitting a link to a pull request containing your
+solution and a short report.
+
+
+* Resources
+
+XState:
+- https://stately.ai/docs/invoke
+
+Ollama:
+- https://github.com/ollama/ollama/tree/main/docs
+
+OpenAI:
+- https://platform.openai.com/docs/api-reference/making-requests
