@@ -1,13 +1,14 @@
 #+OPTIONS: toc:t num:nil
 #+TITLE: Lab 2. LLMs for dialogue systems
 
+
 In this lab you will explore how LLMs can be used in XState and
 SpeechState. Additionally, you will practice the usage of external web
 services to access remote APIs.
 
-* Part 0. Make sure you have solved the exercise from [[file:../Lectures/promise-invoke-llm.org][the tutorial]] 
+** Part 0. Make sure you have solved the exercise from [[file:../Lectures/promise-invoke-llm.org][the tutorial]] 
 
-* Part 1: Chit-chat with SpeechState
+** Part 1: Chit-chat with SpeechState
 
 In this part you will create a voice-enabled chatbot. 
 
@@ -30,6 +31,7 @@ In this part you will create a voice-enabled chatbot.
 5. Invoke this actor in order to implement an infinite completion
    loop. You can refer to the diagram below (some details omitted) or
    modify it according to your own perspective.
+
   #+begin_src plantuml :results output replace file :file img/completion.svg :exports results :tangle statechart.plantuml
   @startuml
   state Loop
@@ -57,16 +59,20 @@ In this part you will create a voice-enabled chatbot.
   Loop -> Loop: RECOGNISED\n \\append(event.result,messages)
 
   #+end_src
-  Note: ~/append(...)~ is a shorthand for ~assign~ action which appends a new message to the list of messages.
+
   #+RESULTS:
   [[file:img/completion.svg]]
   
-6. When this is done you should be able to have a chat with your LLM!
+    #+begin_quote
+    *Note*: ~/append(...)~ is a shorthand for ~assign~ action which appends a new message to the list of messages.
+    #+end_quote
 
-* Part 2: Exploration
+After this is done you should be able to have a chat with your LLM!
+
+** Part 2: Exploration
 You can do either of the two options, depending on your project plans.
 
-** Option 1: further experiments with chit-chat LLM
+*** Option 1: further experiments with chit-chat LLM
  
 1. Implement handling of ~ASR_NOINPUT~.
 2. Feel free to experiment! For instance:
@@ -89,18 +95,18 @@ You can do either of the two options, depending on your project plans.
 4. You can think of different scenarios which make a LLM useful, for
    instance, grounding or language generation.
    
-** Report
+*** Report
 Provide a short report (max 1 A4 page; PDF, Markdown or org-mode
 format) about your experiments. Commit it to your fork into the root
 directory.
 
 
-* Submission
+** Submission
 Report the lab by submitting a link to a pull request containing your
 solution and a short report.
 
 
-* Resources
+** Resources
 
 XState:
 - https://stately.ai/docs/invoke
