@@ -1,7 +1,7 @@
 import { AnyActorRef, assign, createActor, fromPromise, setup } from "xstate";
 import { speechstate, SpeechStateExternalEvent } from "speechstate";
 import { createBrowserInspector } from "@statelyai/inspect";
-import { KEY } from "./azure";
+import { KEY } from "azure.ts";
 
 const inspector = createBrowserInspector();
 
@@ -86,7 +86,22 @@ const dmMachine = setup({
         response.json()
       );
     }),
-  },
+    LLMActor: fromPromise<any>(async ({input})=> {
+      const body = {
+        model: "llama3.1",
+        stream: false,
+        messages: [ {
+          role : "user",
+          content : input, 
+        }
+        ]
+      };
+      return fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((response) => response.json());
+   } )    
+  }
 }).createMachine({
   context: ({ spawn }) => ({
     count: 0,
@@ -128,15 +143,13 @@ const dmMachine = setup({
           },
         },
         Prompt: {
-          entry: {
-            type: "speechstate_speak",
-            params: ({ context }) => ({
-              value: `Hello world! Available models are: ${context.availableModels!.join(
-                " "
-              )}`,
-            }),
+          invoke :{
+            src : "LLMActor",
+            input : "Hi, how can I help you?",
+            onDone : {
+              target: "Ask"
+            },
           },
-          on: { SPEAK_COMPLETE: "Ask" },
         },
         NoInput: {
           initial: "Choice",
