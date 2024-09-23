@@ -20,7 +20,7 @@ installed at mltgpu, but you can also get it up and running on your
 own machine. You can connect to mltgpu's ollama with this command:
 
 #+begin_src sh
-ssh -f -N -L 11434:localhost:11434 mltgpu
+ssh -f -N -L 11434:127.0.0.1:11434 mltgpu
 #+end_src
 
 This command creates a background process which forward the port 11434
@@ -35,7 +35,7 @@ have it set up, you can either use full server address instead of
 
 I recommend you to add alias for this command:
 #+begin_src sh
-alias mltgpu_ollama='ssh -f -N -L 11434:localhost:11434 mltgpu'  
+alias mltgpu_ollama='ssh -f -N -L 11434:127.0.0.1:11434 mltgpu'  
 #+end_src
 and just run ~mltgpu_ollama~ to connect to ollama API.
 
