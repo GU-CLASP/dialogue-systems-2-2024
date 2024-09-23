@@ -46,10 +46,15 @@ function getPerson(utterance: string) {
 interface MyDMContext extends DMContext {
   noinputCounter: number;
   availableModels?: string[];
+  messages: Message[];
 }
 interface DMContext {
   count: number;
   ssRef: AnyActorRef;
+}
+interface Message {
+  role: "assistant" | "user" | "system";
+  content: string;
 }
 const dmMachine = setup({
   types: {} as {
@@ -86,12 +91,25 @@ const dmMachine = setup({
         response.json()
       );
     }),
+    llm_generate: fromPromise<any, {prompt:Message[]}>(async ({ input }) => {
+      const body = {
+        model: "llama3.1",
+        stream: false,
+        messages: input.prompt
+      };
+      console.log(`This is the body--> ${JSON.stringify(body)}`)
+      return fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((response) => response.json());
+    })
   },
 }).createMachine({
   context: ({ spawn }) => ({
     count: 0,
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
+    messages: [{role: "user", content: "How are you today my lovely AI machine?"}]
     // moreStuff: {thingOne: 1, thingTwo: 2}
   }),
   id: "DM",
@@ -112,11 +130,11 @@ const dmMachine = setup({
         GetModels: {
           invoke: {
             src: "get_ollama_models",
-            input: null,
+            input: null, 
             onDone: {
-              target: "Prompt",
+              target: "Generate_LMM_answer",
               actions: assign(({ event }) => {
-                console.log(event.output);
+                console.log(`This is the event.output.models--> ${event.output.models}`);
                 return {
                   availableModels: event.output.models.map((m: any) => m.name),
                 };
@@ -127,80 +145,71 @@ const dmMachine = setup({
             },
           },
         },
-        Prompt: {
+
+        // in Prompt, the LMM answer gets generated and assigned to the context
+        // in this state, we provide the model with the first prompt from the user (this is already in context.messages)
+        Generate_LMM_answer: {
+          invoke: {
+            src: "llm_generate", 
+            input: ({context}) => ({prompt: context.messages}),
+            onDone: {
+              target: "Speak_LMM",
+              actions: [
+                assign(({context, event }) => { return { messages: [ ...context.messages, { role: "assistant", content: event.output.message.content }]}}), // attempting to assign the LMM answer to the messages in the context
+                ({ event }) => console.log(`This is the event output response--> ${event.output.response}`),
+                ({ context}) => console.log("Sending to API:", JSON.stringify({ model: "llama3.1", messages: context.messages })),
+                ({ context }) => console.log(`This is the context messages--> ${context.messages}`),
+                ({ event }) => console.log(`Full event output:`, event.output),
+                ({ context }) => console.log(`This is context.messages[context.messages.length-1].content --> ${context.messages[context.messages.length-1].content }`),
+              ],
+            },
+          },
+        },
+
+        // in Speak_LMM_State, the LMM answer stored in context gets spoken
+        Speak_LMM: {
           entry: {
             type: "speechstate_speak",
-            params: ({ context }) => ({
-              value: `Hello world! Available models are: ${context.availableModels!.join(
-                " "
-              )}`,
-            }),
+            params: ({ context }) => {
+              const lastMessage = context.messages[context.messages.length - 1]; // reading the last object from messagges
+              console.log(`This is lastMessage--> ${lastMessage.content}`)
+              return { value: lastMessage.content  };
+            },   
           },
-          on: { SPEAK_COMPLETE: "Ask" },
-        },
-        NoInput: {
-          initial: "Choice",
-          states: {
-            Choice: {
-              always: [
-                { guard: "noinputCounterMoreThanOne", target: "MoreThanOne" },
-                { target: "LessThanOne" },
-              ],
-            },
-            LessThanOne: {
-              entry: {
-                type: "speechstate_speak",
-                params: { value: "I didn't hear you" },
-              },
-            },
-            MoreThanOne: {
-              entry: {
-                type: "speechstate_speak",
-                params: ({ context }) => {
-                  return {
-                    value: `I didn't hear you ${context.noinputCounter} times`,
-                  };
-                },
-              },
-            },
-          },
-          on: { SPEAK_COMPLETE: "Ask" },
-        },
-        Ask: {
-          entry: {
-            type: "speechstate_listen",
-          },
-          on: {
-            ASR_NOINPUT: {
-              target: "NoInput",
-              actions: { type: "assign_noinputCounter" },
-            },
-            RECOGNISED: {
-              actions: [
-                {
-                  type: "speechstate_speak",
-                  params: ({ event }) => {
-                    const u = event.value[0].utterance;
-                    return {
-                      value: `You just said: ${u}. And it ${
-                        isInGrammar(u) ? "is" : "is not"
-                      } in the grammar.`,
-                    };
-                  },
-                },
-              ],
-            },
-            SPEAK_COMPLETE: "#DM.Done",
-          },
-        },
+          on: { SPEAK_COMPLETE: "Listen_user_input"},
       },
-    },
-    Done: {
-      on: {
-        CLICK: "PromptAndAsk",
+
+        // in Listen_user_input, the machine will listen to the user's utterance 
+        Listen_user_input: {
+            entry: {
+              type: "speechstate_listen"
+            },
+            on: {
+              RECOGNISED: {
+                actions: [assign(({ context, event}) => { return { messages: [ ...context.messages, { role: "user", content: event.value[0].utterance}]}}), // attempting to assign the user's utterance to the messages in the context
+                ({ event }) => console.log(`This is the event value utterance--> ${event.value[0].utterance}`),
+                ({ context }) => console.log(`This is the context messages [1].content--> ${context.messages[1].content}`)
+              ],
+              target: "Generate_LMM_answer"},
+              ASR_NOINPUT: {
+                target: "noInput"
+              }
+          },
       },
+
+      noInput: {
+        entry: {
+          type: "speechstate_speak",
+          params: {value: "Sorry, I did not hear you! Kindly repeat."}
+        },
+        on: {
+          SPEAK_COMPLETE: "Listen_user_input"
+        }
+      }
+
     },
   },
+}
 });
 
 const dmActor = createActor(dmMachine, {
