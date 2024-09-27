@@ -99,11 +99,6 @@ const dmMachine = setup({
         model: "llama3.1",
         messages : input.prompt,
         stream: false,
-        //messages: [ {
-        //  role : "user",
-        //  content : input, 
-       // }
-        //]
       };
       return fetch("http://localhost:11434/api/chat", {
         method: "POST",
@@ -153,29 +148,35 @@ const dmMachine = setup({
           },
         },
         Prompt: {
-          invoke :{
-            src : "LLMActor",
-            input : ({}) => ({ prompt : [{role: "user", content : "Hi"}] }),
-            onDone : {
-              target : "Answer",
-              actions : assign(({context,event}) => {
-                return {
-                  messages: [...context.messages, {
-                    role : "user",
-                    content : event.output.response
-                  }
-                   ],
-                } ;
-              }), 
+          invoke: {
+            src: "LLMActor",
+            input: ({}) => ({ prompt: [{ role: "user", content: "Hi" }] }),
+            onDone: {
+              target: "Answer",
+              actions: [
+                ({ event }) => console.log(event.output.message.content),
+                assign(({ context, event }) => {
+                  return {
+                    messages: [
+                      ...context.messages,
+                      {
+                        role: "assistant",
+                        content: event.output.message.content,
+                      },
+                    ],
+                  };
+                }),
+              ],
+            },
           },
         },
-      },
         Answer : {
           entry: {
           type: "speechstate_speak",
           params: ({ context }) => {
-            return {
-              value: `${context.messages[-1]}`,
+              const utterance = context.messages[context.messages.length - 1];
+              return {
+              value: `${utterance.content}`,
             };
         }
         },
@@ -197,10 +198,33 @@ const dmMachine = setup({
                    ],
                 } ;
               }), 
-            ]
-            
+            ],
+          target: "Loop"  
           }
         }
+      },
+      Loop: {
+        invoke: {
+          src: "LLMActor",
+          input: ({context}) => ({ prompt: context.messages }),
+          onDone: {
+            target: "Answer",
+            actions: [
+              ({ event }) => console.log(event.output.message.content),
+              assign(({ context, event }) => {
+                return {
+                  messages: [
+                    ...context.messages,
+                    {
+                      role: "assistant",
+                      content: event.output.message.content,
+                    },
+                  ],
+                };
+              }),
+            ],
+          },
+        },
       },
         NoInput: {
           initial: "Choice",
