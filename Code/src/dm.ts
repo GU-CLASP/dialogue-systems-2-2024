@@ -1,7 +1,7 @@
 import { AnyActorRef, assign, createActor, fromPromise, setup } from "xstate";
 import { speechstate, SpeechStateExternalEvent } from "speechstate";
 import { createBrowserInspector } from "@statelyai/inspect";
-import { KEY } from "azure.ts";
+import { KEY } from "./azure";
 
 const inspector = createBrowserInspector();
 
@@ -33,6 +33,10 @@ const grammar: Grammar = {
   "10": { time: "10:00" },
   "11": { time: "11:00" },
 };
+interface Message {
+  role: "assistant" | "user" | "system";
+  content: string;
+} ; 
 
 /* Helper functions */
 function isInGrammar(utterance: string) {
@@ -46,10 +50,13 @@ function getPerson(utterance: string) {
 interface MyDMContext extends DMContext {
   noinputCounter: number;
   availableModels?: string[];
+
 }
 interface DMContext {
   count: number;
   ssRef: AnyActorRef;
+  messages: Message[] ;
+  prompt? :string ;
 }
 const dmMachine = setup({
   types: {} as {
@@ -72,13 +79,14 @@ const dmMachine = setup({
     speechstate_listen: ({ context }) => context.ssRef.send({ type: "LISTEN" }),
     speechstate_speak: ({ context }, params: { value: string }) =>
       context.ssRef.send({ type: "SPEAK", value: { utterance: params.value } }),
-    debug: () => console.debug("blabla"),
+    debug: (event) => console.debug(event),
     assign_noinputCounter: assign(({ context }, params?: { value: number }) => {
       if (!params) {
         return { noinputCounter: context.noinputCounter + 1 };
       }
       return { noinputCounter: context.noinputCounter + params.value };
     }),
+    
   },
   actors: {
     get_ollama_models: fromPromise<any, null>(async () => {
@@ -86,15 +94,16 @@ const dmMachine = setup({
         response.json()
       );
     }),
-    LLMActor: fromPromise<any>(async ({input})=> {
+    LLMActor: fromPromise<any,{prompt:Message[]}>(async ({input})=> {
       const body = {
         model: "llama3.1",
+        messages : input.prompt,
         stream: false,
-        messages: [ {
-          role : "user",
-          content : input, 
-        }
-        ]
+        //messages: [ {
+        //  role : "user",
+        //  content : input, 
+       // }
+        //]
       };
       return fetch("http://localhost:11434/api/chat", {
         method: "POST",
@@ -105,6 +114,7 @@ const dmMachine = setup({
 }).createMachine({
   context: ({ spawn }) => ({
     count: 0,
+    messages: [],
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
     // moreStuff: {thingOne: 1, thingTwo: 2}
@@ -145,12 +155,53 @@ const dmMachine = setup({
         Prompt: {
           invoke :{
             src : "LLMActor",
-            input : "Hi, how can I help you?",
+            input : ({}) => ({ prompt : [{role: "user", content : "Hi"}] }),
             onDone : {
-              target: "Ask"
-            },
+              target : "Answer",
+              actions : assign(({context,event}) => {
+                return {
+                  messages: [...context.messages, {
+                    role : "user",
+                    content : event.output.response
+                  }
+                   ],
+                } ;
+              }), 
           },
         },
+      },
+        Answer : {
+          entry: {
+          type: "speechstate_speak",
+          params: ({ context }) => {
+            return {
+              value: `${context.messages[-1]}`,
+            };
+        }
+        },
+        on: { SPEAK_COMPLETE: "Listen" },
+      },
+      Listen : {
+        entry: {
+          type: "speechstate_listen",
+        },
+        on : {
+          RECOGNISED : { 
+            actions : [
+              assign(({context,event}) => {
+                return {
+                  messages: [...context.messages, {
+                    role : "user",
+                    content : event.value[0].utterance
+                  }
+                   ],
+                } ;
+              }), 
+            ]
+            
+          }
+        }
+      },
         NoInput: {
           initial: "Choice",
           states: {
