@@ -1,0 +1,26 @@
+#+OPTIONS: toc:t num:nil
+#+TITLE: Lab 3. Multimodality 
+** Getting started: 
+
+1. Register at https://furhat.io/ (“Get SDK”) and install the SDK and virtual Furhat.
+2. Launch virtual Furhat and Start Remote API.
+3. Clone the repository: https://github.com/vladmaraev/xstate-furhat-starter.
+4. If you wish you can use other ways to control Furhat, namely Kotlin Skill API or Blockly.
+
+   
+** Tasks:
+
+1. Create at least two new gestures for Furhat of your liking
+   (e.g. eye-rolling, eye and head movements).
+2. Implement user-tracking for Furhat to attend to the user.
+3. Include your gestures as part of a short demonstration dialogue.
+4. Create one new gesture for Furhat with audio sound. You can also
+   add audio to one of the existing gestures (e.g. anger).
+
+** Submission
+Report the lab by submitting a link to a pull request containing your
+solution and a short report.
+
+** Resources:
+- [[https://docs.furhat.io/][Furhat docs]]
+- [[https://docs.furhat.io/remote-api/][Remote API docs]]
