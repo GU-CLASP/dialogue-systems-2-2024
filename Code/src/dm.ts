@@ -35,7 +35,6 @@ const grammar: Grammar = {
 };
 
 
-const NoInput : string[] = ["I didn't hear you?", "Are you there?", "Bestie answer me."];
 
 interface Message {
   role: "assistant" | "user" | "system";
@@ -64,7 +63,7 @@ interface DMContext {
   ssRef: AnyActorRef;
   messages: Message[] ;
   prompt? :string ;
-  noInput? : [] ;
+  noInput : string[] ;
 }
 const dmMachine = setup({
   types: {} as {
@@ -73,7 +72,7 @@ const dmMachine = setup({
   },
   guards: {
     noinputCounterMoreThanThree: ({ context }) => {
-      if (context.noinputCounter > 3) {
+      if (context.noinputCounter === 3) {
         return true;
       } else {
         return false;
@@ -112,18 +111,7 @@ const dmMachine = setup({
         method: "POST",
         body: JSON.stringify(body),
       }).then((response) => response.json());
-   } ),
-   DidntHearActor :  fromPromise<any,{prompt:Message[]}>(async ({input})=> {
-    const body = {
-      model: "llama3.1",
-      messages : input.prompt ,
-      stream: false,
-    };
-    return fetch("http://localhost:11434/api/chat", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }).then((response) => response.json());
- } )   
+   } ), 
   }
 }).createMachine({
   context: ({ spawn }) => ({
@@ -131,7 +119,7 @@ const dmMachine = setup({
     messages: [],
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
-    noInput: [],
+    noInput  : ["I didn't hear you?", "Are you there?", "Bestie answer me.","Why aren't you answering?"],
     // moreStuff: {thingOne: 1, thingTwo: 2}
   }),
   id: "DM",
@@ -174,7 +162,7 @@ const dmMachine = setup({
             onDone: {
               target: "Answer",
               actions: [
-                ({ event }) => console.log(event.output.message.content),
+                //({ event }) => console.log(event.output.message.content),
                 assign(({ context, event }) => {
                   return {
                     messages: [
@@ -199,7 +187,7 @@ const dmMachine = setup({
               value: `${utterance.content}`,
             };
         }
-        },
+        }, 
         on: { SPEAK_COMPLETE: "Listen" },
       },
       Listen : {
@@ -250,9 +238,6 @@ const dmMachine = setup({
         },
       },
       NoInput : {
-        initial: "Choice",
-          states: {
-            Choice: {
               always: [
                 { guard: "noinputCounterMoreThanThree", target: "#DM.Done" },
                 { target: "ChooseNoInput" },
@@ -261,9 +246,9 @@ const dmMachine = setup({
         ChooseNoInput : {
         invoke: {
           src: "LLMActor",
-          input: ({}) => ({ prompt: [{ role: "assistant", content: getRandomFromList(NoInput) }] }),
+          input: ({context}) => ({ prompt: [{ role: "assistant", content: getRandomFromList(context.noInput) }] }),
           onDone: {
-            target: "#DM.PromptAndAsk.Answer",
+            target: "Answer",
             actions: [
               assign(({ context, event }) => {
                 return {
@@ -283,8 +268,6 @@ const dmMachine = setup({
       },
     },
     },
-  },
-  },
     Done: {
       on: {
         CLICK: "PromptAndAsk",
