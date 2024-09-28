@@ -33,6 +33,10 @@ const grammar: Grammar = {
   "10": { time: "10:00" },
   "11": { time: "11:00" },
 };
+
+
+const NoInput : string[] = ["I didn't hear you?", "Are you there?", "Bestie answer me."];
+
 interface Message {
   role: "assistant" | "user" | "system";
   content: string;
@@ -42,7 +46,10 @@ interface Message {
 function isInGrammar(utterance: string) {
   return utterance.toLowerCase() in grammar;
 }
-
+function getRandomFromList(list: string[]): string {
+  const randomIndex = Math.floor(Math.random() * list.length);
+  return list[randomIndex];
+}
 function getPerson(utterance: string) {
   return (grammar[utterance.toLowerCase()] || {}).person;
 }
@@ -57,6 +64,7 @@ interface DMContext {
   ssRef: AnyActorRef;
   messages: Message[] ;
   prompt? :string ;
+  noInput? : [] ;
 }
 const dmMachine = setup({
   types: {} as {
@@ -64,8 +72,8 @@ const dmMachine = setup({
     events: SpeechStateExternalEvent | { type: "CLICK" };
   },
   guards: {
-    noinputCounterMoreThanOne: ({ context }) => {
-      if (context.noinputCounter > 1) {
+    noinputCounterMoreThanThree: ({ context }) => {
+      if (context.noinputCounter > 3) {
         return true;
       } else {
         return false;
@@ -104,7 +112,18 @@ const dmMachine = setup({
         method: "POST",
         body: JSON.stringify(body),
       }).then((response) => response.json());
-   } )    
+   } ),
+   DidntHearActor :  fromPromise<any,{prompt:Message[]}>(async ({input})=> {
+    const body = {
+      model: "llama3.1",
+      messages : input.prompt ,
+      stream: false,
+    };
+    return fetch("http://localhost:11434/api/chat", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }).then((response) => response.json());
+ } )   
   }
 }).createMachine({
   context: ({ spawn }) => ({
@@ -112,6 +131,7 @@ const dmMachine = setup({
     messages: [],
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
+    noInput: [],
     // moreStuff: {thingOne: 1, thingTwo: 2}
   }),
   id: "DM",
@@ -200,6 +220,9 @@ const dmMachine = setup({
               }), 
             ],
           target: "Loop"  
+          },
+          ASR_NOINPUT : {
+            target: "NoInput"
           }
         }
       },
@@ -226,69 +249,48 @@ const dmMachine = setup({
           },
         },
       },
-        NoInput: {
-          initial: "Choice",
+      NoInput : {
+        initial: "Choice",
           states: {
             Choice: {
               always: [
-                { guard: "noinputCounterMoreThanOne", target: "MoreThanOne" },
-                { target: "LessThanOne" },
+                { guard: "noinputCounterMoreThanThree", target: "#DM.Done" },
+                { target: "ChooseNoInput" },
               ],
             },
-            LessThanOne: {
-              entry: {
-                type: "speechstate_speak",
-                params: { value: "I didn't hear you" },
-              },
-            },
-            MoreThanOne: {
-              entry: {
-                type: "speechstate_speak",
-                params: ({ context }) => {
-                  return {
-                    value: `I didn't hear you ${context.noinputCounter} times`,
-                  };
-                },
-              },
-            },
-          },
-          on: { SPEAK_COMPLETE: "Ask" },
-        },
-        Ask: {
-          entry: {
-            type: "speechstate_listen",
-          },
-          on: {
-            ASR_NOINPUT: {
-              target: "NoInput",
-              actions: { type: "assign_noinputCounter" },
-            },
-            RECOGNISED: {
-              actions: [
-                {
-                  type: "speechstate_speak",
-                  params: ({ event }) => {
-                    const u = event.value[0].utterance;
-                    return {
-                      value: `You just said: ${u}. And it ${
-                        isInGrammar(u) ? "is" : "is not"
-                      } in the grammar.`,
-                    };
-                  },
-                },
-              ],
-            },
-            SPEAK_COMPLETE: "#DM.Done",
+        ChooseNoInput : {
+        invoke: {
+          src: "LLMActor",
+          input: ({}) => ({ prompt: [{ role: "assistant", content: getRandomFromList(NoInput) }] }),
+          onDone: {
+            target: "#DM.PromptAndAsk.Answer",
+            actions: [
+              assign(({ context, event }) => {
+                return {
+                  messages: [
+                    ...context.messages,
+                    {
+                      role: "assistant",
+                      content: event.output.message.content },
+                      
+                  ],
+                };
+              }),
+              { type: "assign_noinputCounter" }
+            ],
           },
         },
       },
     },
+    },
+  },
+  },
     Done: {
       on: {
         CLICK: "PromptAndAsk",
       },
-    },
   },
+},
 });
 
 const dmActor = createActor(dmMachine, {
