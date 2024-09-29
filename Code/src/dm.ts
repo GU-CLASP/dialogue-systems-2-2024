@@ -119,8 +119,7 @@ const dmMachine = setup({
     messages: [],
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
-    noInput  : ["I didn't hear you?", "Are you there?", "Bestie answer me.","Why aren't you answering?"],
-    // moreStuff: {thingOne: 1, thingTwo: 2}
+    noInput  : ["I didn't hear you.", "Are you there?", "Bestie answer me.","Why aren't you answering?"],
   }),
   id: "DM",
   initial: "Prepare",
@@ -205,7 +204,12 @@ const dmMachine = setup({
                   }
                    ],
                 } ;
-              }), 
+              }),
+              assign(({context})=> {
+                return {
+                  noinputCounter: context.noinputCounter = 0
+                }
+              } ) 
             ],
           target: "Loop"  
           },
