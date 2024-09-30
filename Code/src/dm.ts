@@ -225,7 +225,7 @@ const dmMachine = setup({
           onDone: {
             target: "Answer",
             actions: [
-              ({ event }) => console.log(event.output.message.content),
+              //({ event }) => console.log(event.output.message.content),
               assign(({ context, event }) => {
                 return {
                   messages: [
