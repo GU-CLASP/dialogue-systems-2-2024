@@ -21,42 +21,58 @@ const settings = {
 };
 
 /* Grammar definition */
-interface Grammar {
-  [index: string]: { person?: string; day?: string; time?: string };
-}
-const grammar: Grammar = {
-  vlad: { person: "Vladislav Maraev" },
-  aya: { person: "Nayat Astaiza Soriano" },
-  rasmus: { person: "Rasmus Blanck" },
-  monday: { day: "Monday" },
-  tuesday: { day: "Tuesday" },
-  "10": { time: "10:00" },
-  "11": { time: "11:00" },
-};
+// interface Grammar {
+//   [index: string]: { person?: string; day?: string; time?: string };
+// }
+// const grammar: Grammar = {
+//   vlad: { person: "Vladislav Maraev" },
+//   aya: { person: "Nayat Astaiza Soriano" },
+//   rasmus: { person: "Rasmus Blanck" },
+//   monday: { day: "Monday" },
+//   tuesday: { day: "Tuesday" },
+//   "10": { time: "10:00" },
+//   "11": { time: "11:00" },
+// };
 
 /* Helper functions */
-function isInGrammar(utterance: string) {
-  return utterance.toLowerCase() in grammar;
-}
+// function isInGrammar(utterance: string) {
+//   return utterance.toLowerCase() in grammar;
+// }
 
-function getPerson(utterance: string) {
-  return (grammar[utterance.toLowerCase()] || {}).person;
+// function getPerson(utterance: string) {
+//   return (grammar[utterance.toLowerCase()] || {}).person;
+// }
+
+/* Intoduce Message into context */
+interface Message {
+  role: "assistant" | "user" | "system";
+  content: string;
 }
 
 interface MyDMContext extends DMContext {
   noinputCounter: number;
   availableModels?: string[];
+  messages: Message[];
 }
+
 interface DMContext {
   count: number;
   ssRef: AnyActorRef;
 }
+        
 const dmMachine = setup({
   types: {} as {
     context: MyDMContext;
     events: SpeechStateExternalEvent | { type: "CLICK" };
   },
   guards: {
+    noinputCounterMoreThanTwo: ({ context }) => {
+      if (context.noinputCounter > 2) {
+        return true;
+      } else {
+        return false;
+      }
+    },
     noinputCounterMoreThanOne: ({ context }) => {
       if (context.noinputCounter > 1) {
         return true;
@@ -86,12 +102,29 @@ const dmMachine = setup({
         response.json()
       );
     }),
-  },
-}).createMachine({
+    fetchCompletions: fromPromise( 
+      async ({ input }: { input: { messages: Message[] } }) => {
+      const body = {
+        model: "llama3.1",
+        stream: false,
+        /* adjust parameters */
+        temperature: 0.9, // default 0.8;Increasing the temperature will make the model answer more creatively.
+        top_k: 80, // default 40; A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative.
+        top_p: 0.95, // default 0.9; Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. 
+        messages: input.messages
+      };
+      console.log("Sending messages to Llama model:", body.messages); // Log the messages
+      return fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((response) => response.json());
+    })
+}}).createMachine({
   context: ({ spawn }) => ({
     count: 0,
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
+    messages: [],
     // moreStuff: {thingOne: 1, thingTwo: 2}
   }),
   id: "DM",
@@ -133,7 +166,7 @@ const dmMachine = setup({
             params: ({ context }) => ({
               value: `Hello world! Available models are: ${context.availableModels!.join(
                 " "
-              )}`,
+              )} What can I do for you?`,
             }),
           },
           on: { SPEAK_COMPLETE: "Ask" },
@@ -143,6 +176,7 @@ const dmMachine = setup({
           states: {
             Choice: {
               always: [
+                { guard: "noinputCounterMoreThanTwo", target: "#DM.PromptAndAsk.Stopped" }, // add new check rule
                 { guard: "noinputCounterMoreThanOne", target: "MoreThanOne" },
                 { target: "LessThanOne" },
               ],
@@ -166,41 +200,97 @@ const dmMachine = setup({
           },
           on: { SPEAK_COMPLETE: "Ask" },
         },
-        Ask: {
+        Stopped: {
           entry: {
-            type: "speechstate_listen",
+            type: "speechstate_speak",
+            params: { value: `I didn't hear you 3 times. I'm stopping now due to no input.`}, 
           },
+          on: {
+            SPEAK_COMPLETE: "#DM.Done" 
+          },
+        },
+        Ask: {
+          entry: [
+            { type: "speechstate_listen" },
+            () => console.log("Enter the Ask state, wait for user input...")
+          ],
           on: {
             ASR_NOINPUT: {
               target: "NoInput",
               actions: { type: "assign_noinputCounter" },
             },
             RECOGNISED: {
+              target: "CallLlama",
+              actions: assign({
+                messages: ({ context, event }) => {
+                  console.log("Received event:", event); // 调试 event 的内容
+
+                  // 确保提取的 utterance 不为 undefined
+                  const userUtterance = (event as any)?.value?.[0]?.utterance;
+
+                  if (!userUtterance) {
+                    console.warn("Utterance is undefined, returning current messages.");
+                    return context.messages // 如果没有 utterance，返回原来的 messages
+                  }
+
+                  console.log("Extracted utterance:", userUtterance);
+
+                  // 返回一个有效的 Message 数组
+                  return [
+                    ...context.messages,
+                    { role: "user", content: userUtterance } as Message,
+                  ]
+                }
+              })
+            },
+          },
+        },
+        CallLlama: {
+          invoke: {
+            src: "fetchCompletions",
+            input: ({ context }) => ({ messages: context.messages }),
+            onDone: {
+              actions: [
+                assign({
+                  messages: ({ context, event }) => [
+                    ...context.messages,
+                    { role: "assistant", content: event.output.message.content } as Message
+                  ]
+                }),
+                () => console.log("Llama responded successfully, ready to speak..."),
+                {
+                  type: "speechstate_speak",
+                  params: ({ event }) => ({
+                    value: event.output.message.content,
+                  }),
+                },
+              ],
+              target: "WaitingForCallLlamaComplete",
+            },
+            onError: {
               actions: [
                 {
                   type: "speechstate_speak",
-                  params: ({ event }) => {
-                    const u = event.value[0].utterance;
-                    return {
-                      value: `You just said: ${u}. And it ${
-                        isInGrammar(u) ? "is" : "is not"
-                      } in the grammar.`,
-                    };
-                  },
+                  params: { value: "Sorry, I'm having trouble calling Llama." },
                 },
               ],
-            },
-            SPEAK_COMPLETE: "#DM.Done",
+              target: "Ask",
+            }
           },
         },
-      },
+        WaitingForCallLlamaComplete: {
+          on: {
+            SPEAK_COMPLETE: "Ask"
+          }
+        },
+      }
     },
     Done: {
       on: {
         CLICK: "PromptAndAsk",
       },
     },
-  },
+    },
 });
 
 const dmActor = createActor(dmMachine, {
