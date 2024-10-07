@@ -7,7 +7,7 @@ const inspector = createBrowserInspector();
 
 const azureCredentials = {
   endpoint:
-    "https://northeurope.api.cognitive.microsoft.com/sts/v1.0/issuetoken",
+   "https://northeurope.api.cognitive.microsoft.com/sts/v1.0/issuetoken",
   key: KEY,
 };
 
@@ -46,10 +46,16 @@ function getPerson(utterance: string) {
 interface MyDMContext extends DMContext {
   noinputCounter: number;
   availableModels?: string[];
+  messages: Message[]; // Message context
 }
 interface DMContext {
   count: number;
   ssRef: AnyActorRef;
+}
+// Help maintain the history of your dialogue
+interface Message {
+  role: "assistant" | "user" | "system";
+  content: string;
 }
 const dmMachine = setup({
   types: {} as {
@@ -86,12 +92,25 @@ const dmMachine = setup({
         response.json()
       );
     }),
-  },
+    //Following the instruction to create another actors
+    get_new_actor: fromPromise<any, {message_list: Message[]}>(async ({input}) => { // TInput = NonReducibleUnknown, promiseCreator: ({ input,
+        const body = {
+          model: "llama3.1",
+          stream: false,
+          messages: input.message_list // Set input messages to itself
+        };
+        return fetch("http://localhost:11434/api/chat", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }).then((response) => response.json());
+      }),
+    },
 }).createMachine({
   context: ({ spawn }) => ({
     count: 0,
     ssRef: spawn(speechstate, { input: settings }),
     noinputCounter: 0,
+    messages: [{role: "system", content: "Let's start to chat!"}]
     // moreStuff: {thingOne: 1, thingTwo: 2}
   }),
   id: "DM",
@@ -106,6 +125,7 @@ const dmMachine = setup({
         CLICK: "PromptAndAsk",
       },
     },
+
     PromptAndAsk: {
       initial: "GetModels",
       states: {
@@ -115,8 +135,11 @@ const dmMachine = setup({
             input: null,
             onDone: {
               target: "Prompt",
-              actions: assign(({ event }) => {
-                console.log(event.output);
+              actions: assign(({ event, context }) => {
+                context.messages.push({role: "user"
+                  , content: "why is the sky blue?"}); // First intention by manual input "Why is the sky blue?"
+                console.log("[Output information GetModels]", event.output);
+                console.log("[Messages information GetModels]", context.messages); // Json of messages 
                 return {
                   availableModels: event.output.models.map((m: any) => m.name),
                 };
@@ -131,12 +154,82 @@ const dmMachine = setup({
           entry: {
             type: "speechstate_speak",
             params: ({ context }) => ({
-              value: `Hello world! Available models are: ${context.availableModels!.join(
+              value: `Hello world! ${context.messages[0].content} Available models are: ${context.availableModels!.join(
                 " "
               )}`,
             }),
           },
-          on: { SPEAK_COMPLETE: "Ask" },
+          on: { SPEAK_COMPLETE: "FetchCompl" },
+        },
+        FetchCompl: {
+          invoke: {
+            src: "get_new_actor",
+            input: ({context}) => ({message_list: context.messages}),
+            onDone: {
+              target: "GetAnswer",
+              actions: assign(({ event, context }) => {
+                console.log("[Output information FetchCompl]", event.output);
+                console.log("[Messages information FetchCompl]", context.messages); // Json of messages
+                return {
+                  messages: [
+                    ...context.messages,
+                    {role: "assistant", content: event.output.message.content }]
+                };
+                
+              }),
+            },
+            onError: {
+              actions: () => console.error("no models available"),
+            },
+          },
+        },
+        GetAnswer: {
+          entry: {
+            type: "speechstate_speak",
+            params: ({ context }) => {
+              console.log("[Messages information GetAnswer]", context.messages) // Json of messages
+              return{ value: `Answer: ${context.messages[context.messages.length - 1].content} 
+              )}`,}
+            },
+          },
+          on: { SPEAK_COMPLETE: "AskQuestion" },
+        },
+        AskQuestion: {
+          entry: {
+            type: "speechstate_speak",
+            params: () => ({
+              value: `Please ask me a question!`,
+            }),
+          },
+          
+          on: { SPEAK_COMPLETE: "GetQuestionFromUser" },
+        },
+        GetQuestionFromUser: {
+          entry: {
+            type: "speechstate_listen",
+          },
+          on: {
+            ASR_NOINPUT: {
+              target: "NoInput",
+              actions: { type: "assign_noinputCounter" },
+            },
+            RECOGNISED: {
+              actions: [
+                {
+                  type: "speechstate_speak",
+                  params: ({ event, context }) => {
+                    const u = event.value[0].utterance;
+                    context.messages.push({role: "user", content: u}); // Second attempt, get question from User
+                    return {
+                      value: `You just said: ${u}. I will think for a while and answer you`,
+                    };
+                   
+                  },
+                },
+              ],
+            },
+            SPEAK_COMPLETE: "FetchCompl",
+          },
         },
         NoInput: {
           initial: "Choice",
@@ -164,34 +257,7 @@ const dmMachine = setup({
               },
             },
           },
-          on: { SPEAK_COMPLETE: "Ask" },
-        },
-        Ask: {
-          entry: {
-            type: "speechstate_listen",
-          },
-          on: {
-            ASR_NOINPUT: {
-              target: "NoInput",
-              actions: { type: "assign_noinputCounter" },
-            },
-            RECOGNISED: {
-              actions: [
-                {
-                  type: "speechstate_speak",
-                  params: ({ event }) => {
-                    const u = event.value[0].utterance;
-                    return {
-                      value: `You just said: ${u}. And it ${
-                        isInGrammar(u) ? "is" : "is not"
-                      } in the grammar.`,
-                    };
-                  },
-                },
-              ],
-            },
-            SPEAK_COMPLETE: "#DM.Done",
-          },
+          on: { SPEAK_COMPLETE: "#DM.Done" },
         },
       },
     },
@@ -200,7 +266,7 @@ const dmMachine = setup({
         CLICK: "PromptAndAsk",
       },
     },
-  },
+  }
 });
 
 const dmActor = createActor(dmMachine, {
