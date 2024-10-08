@@ -43,13 +43,27 @@ function getPerson(utterance: string) {
   return (grammar[utterance.toLowerCase()] || {}).person;
 }
 
+const dearClient = ["Are you there?", "If you do not want to chat just click X", "Please answer to me", "Do you ignore me?"];
+function randomRepeat(myarray: any) {
+    const randomIndex = Math.floor(Math.random() * myarray.length);
+    return myarray[randomIndex];
+}
+
 interface MyDMContext extends DMContext {
   noinputCounter: number;
   availableModels?: string[];
+
 }
 interface DMContext {
   count: number;
   ssRef: AnyActorRef;
+  messages: Message[];
+  prompt? : string ;
+}
+
+interface Message {
+  role: "assistant" | "user" | "system";
+  content: string;
 }
 const dmMachine = setup({
   types: {} as {
@@ -72,7 +86,7 @@ const dmMachine = setup({
     speechstate_listen: ({ context }) => context.ssRef.send({ type: "LISTEN" }),
     speechstate_speak: ({ context }, params: { value: string }) =>
       context.ssRef.send({ type: "SPEAK", value: { utterance: params.value } }),
-    debug: () => console.debug("blabla"),
+    debug: (event) => console.debug(event),
     assign_noinputCounter: assign(({ context }, params?: { value: number }) => {
       if (!params) {
         return { noinputCounter: context.noinputCounter + 1 };
@@ -85,12 +99,25 @@ const dmMachine = setup({
       return fetch("http://localhost:11434/api/tags").then((response) =>
         response.json()
       );
+    }),    
+  LMactor : fromPromise<any,{prompt:Message[]}>(async ({input}) => {
+      const body = {
+        model: "llama3.1",
+        stream: false,
+        messages : input.prompt,
+        temperature : 0.1
+      };
+      return fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((response) => response.json());
     }),
   },
 }).createMachine({
   context: ({ spawn }) => ({
     count: 0,
     ssRef: spawn(speechstate, { input: settings }),
+    messages: [], //add in prompt
     noinputCounter: 0,
     // moreStuff: {thingOne: 1, thingTwo: 2}
   }),
@@ -114,7 +141,7 @@ const dmMachine = setup({
             src: "get_ollama_models",
             input: null,
             onDone: {
-              target: "Prompt",
+              target: "Prompt", //changed it to infloop
               actions: assign(({ event }) => {
                 console.log(event.output);
                 return {
@@ -128,79 +155,109 @@ const dmMachine = setup({
           },
         },
         Prompt: {
+          invoke: {
+            src: "LMactor",
+            input: ({}) => ({prompt: [{role: "user", content: "Hello"}] }),
+            onDone: {
+              target: "LMAnswer", //needs to be listen? change the Answer to Listen
+              actions: [({event}) => console.log(event.output.message.content),
+                assign(({context, event}) =>{
+                return {
+                  messages: [...context.messages,{
+                    role: "assistant",
+                    content : event.output.message.content,
+                  },
+                ],
+              };
+            }),
+          ],
+        },
+      },
+    },
+    InfLoop: {
+      invoke: {
+        src: "LMactor",
+        input: ({context}) => ({ prompt: context.messages }),
+        onDone: {
+          target: "LMAnswer",
+          actions: [
+            ({ event }) => console.log(event.output.message.content),
+            assign(({ context, event }) => {
+              return {
+                messages: [
+                  ...context.messages,
+                  {
+                    role: "assistant",
+                    content: event.output.message.content,
+                  },
+                ],
+              };
+            }),
+          ],
+        },
+      },
+    },
+        LMAnswer: {
           entry: {
             type: "speechstate_speak",
-            params: ({ context }) => ({
-              value: `Hello world! Available models are: ${context.availableModels!.join(
-                " "
-              )}`,
-            }),
+            params: ({ context }) => {
+              const utterance = context.messages[context.messages.length - 1]; 
+              return { value: utterance.content  };
+            },   
           },
-          on: { SPEAK_COMPLETE: "Ask" },
-        },
-        NoInput: {
-          initial: "Choice",
-          states: {
-            Choice: {
-              always: [
-                { guard: "noinputCounterMoreThanOne", target: "MoreThanOne" },
-                { target: "LessThanOne" },
-              ],
-            },
-            LessThanOne: {
-              entry: {
-                type: "speechstate_speak",
-                params: { value: "I didn't hear you" },
-              },
-            },
-            MoreThanOne: {
-              entry: {
-                type: "speechstate_speak",
-                params: ({ context }) => {
-                  return {
-                    value: `I didn't hear you ${context.noinputCounter} times`,
-                  };
-                },
-              },
-            },
-          },
-          on: { SPEAK_COMPLETE: "Ask" },
-        },
-        Ask: {
-          entry: {
-            type: "speechstate_listen",
-          },
-          on: {
-            ASR_NOINPUT: {
-              target: "NoInput",
-              actions: { type: "assign_noinputCounter" },
-            },
-            RECOGNISED: {
-              actions: [
-                {
-                  type: "speechstate_speak",
-                  params: ({ event }) => {
-                    const u = event.value[0].utterance;
-                    return {
-                      value: `You just said: ${u}. And it ${
-                        isInGrammar(u) ? "is" : "is not"
-                      } in the grammar.`,
-                    };
-                  },
-                },
-              ],
-            },
-            SPEAK_COMPLETE: "#DM.Done",
-          },
-        },
+          on: { SPEAK_COMPLETE: "LMListen"},
       },
+        LMListen: {
+            entry: {
+              type: "speechstate_listen"
+            },
+            on: {
+              RECOGNISED: {
+                actions: [assign(({ context, event}) => { 
+                  return { 
+                    messages: [ ...context.messages, { 
+                      role: "user", content: event.value[0].utterance
+                    }]
+                  }
+                }), 
+              ],
+              target: "InfLoop"},
+              ASR_NOINPUT: 
+              [{
+                  guard: ({ context }) => context.noinputCounter <= 1,
+                  target: "Canthear",
+                  actions: ({ context }) => context.noinputCounter++
+              },
+              {
+                  guard: ({ context }) => context.noinputCounter > 3,
+                  target: "#DM.Done"
+              }],
+
+
+             // ASR_NOINPUT: {
+               // target: "Canthear"
+             // },
+          },
     },
-    Done: {
-      on: {
-        CLICK: "PromptAndAsk",
+
+      Canthear: {
+        entry: {
+          type: "speechstate_speak",
+          params : {value:  randomRepeat(dearClient)},
+        }, 
+        on: {
+            SPEAK_COMPLETE: "LMListen",
+        },
       },
+
     },
   },
+  Done: {
+    on: {
+        CLICK: "PromptAndAsk"
+    }
+},
+}
 });
 
 const dmActor = createActor(dmMachine, {
