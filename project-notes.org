@@ -1,0 +1,43 @@
+#+TITLE: Some notes regarding the project
+** If you want to call Furhat and also show something on the screen...
+
+The best option would be to call Furhat from your fronend code
+(SpeechState + XState) -- in contrast with backend code (only XState)
+that you used in Lab 3. This is a new feature of SpeechState which is
+not relased yet. To use it:
+
+1. Update SpeechState to "pr7" tag:
+   #+begin_src sh
+   yarn up speechstate@pr7  
+   #+end_src
+2. Follow the example in [[https://github.com/vladmaraev/speechstate/blob/ea1c6e11c3ccd99044644e644dbc7645cc67a420/test/furhat.test.ts][test/furhat.test.ts]]. You can ignore test
+   functions, and focus on the definition of the statechart (inside
+   ~setup(...)~). You can integrate this code into your app to enable
+   Furhat lipsync. This is how it works:
+   - SpeechState emits a new event ~FURHAT_BLENDSHAPES~. It sends a
+     number of such events to control animation of Furhat. 
+   - Your code reacts to these events and invokes ~fhBlendShape~ actor
+     which sends lip animation parameters to Furhat.
+   - ASR and TTS happens in the browser, and not on the Furhat, so you
+     don’t need to invoke ~furhat/say~ and ~furhat/listen~ methods.
+3. You can implement a bunch of other animations for Furhat, just like
+   you did in Lab 3. They will be blended together with lip movements,
+   e.g. you can make Furhat smile while speaking.
+4. Unlike backend code, the frontend code has to deal with something
+   which is called [[https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS][CORS]]. Basically, Furhat API will be blocking all
+   the calls from the browser... The easiest way to get around this
+   limitation is to run a proxy server:
+   - Clone [[https://github.com/Rob--W/cors-anywhere][cors-anywhere repository]] into a different folder (not inside your project)
+   - Install the dependencies:
+     #+begin_src sh
+       yarn install
+     #+end_src
+   - Run the server:
+     #+begin_src sh
+       node server.js
+     #+end_src
+   - From now on, to call Furhat prepend the Remote API URL with
+     ~http://localhost:8080/~, for instance:
+     #+begin_src
+       http://localhost:8080/http://127.0.0.1:54321/furhat/attend?user=CLOSEST
+     #+end_src
