@@ -46,7 +46,7 @@ There is a [[https://ollama.com/library/llava/tags][LLaVA model]] available at m
 provide the image via the HTTP call, because it should be base64-encoded.
 
 The easiest way is to base64-encode your image is to [[https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API][load it on the
-canvas]] (with ~id="canvas~), and then use the following method:
+canvas]] (with ~id="canvas~, see example below), and then use the following method:
 
 #+begin_src typescript
   const canvas = <HTMLCanvasElement>document.getElementById("canvas");
@@ -63,4 +63,26 @@ JSON.stringify({
     "What's on this image?",
   images: [image],
 });
+#+end_src
+*** How to load the image on canvas
+#+begin_src html
+<canvas id="canvas" height="627" width="627"></canvas>
+#+end_src
+
+#+begin_src javascript
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+img = new Image();
+// ctx.strokeRect(1, 1, 626, 626); // to draw the canvas border
+img.onload = () => 
+  {
+   let hRatio = canvas.width / img.width;
+   let vRatio = canvas.height / img.height;
+   let ratio = Math.min(hRatio, vRatio);
+   let centerShift_x = (canvas.width - img.width * ratio) / 2;
+   let centerShift_y = (canvas.height - img.height * ratio) / 2;
+
+   ctx.drawImage(img,0,0, img.width, img.height, centerShift_x, centerShift_y, img.width * ratio, img.height * ratio) 
+  };
+img.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/G%C3%B6teborg_2503_stitch_%2828573994096%29.jpg/1280px-G%C3%B6teborg_2503_stitch_%2828573994096%29.jpg"
 #+end_src
