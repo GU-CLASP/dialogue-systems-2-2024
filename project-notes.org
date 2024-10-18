@@ -41,3 +41,26 @@ not relased yet. To use it:
      #+begin_src
        http://localhost:8080/http://127.0.0.1:54321/furhat/attend?user=CLOSEST
      #+end_src
+** If you want to generate image descriptions...
+There is a [[https://ollama.com/library/llava/tags][LLaVA model]] available at mltgpu. It is a little tricky to
+provide the image via the HTTP call, because it should be base64-encoded.
+
+The easiest way is to base64-encode your image is to [[https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API][load it on the
+canvas]] (with ~id="canvas~), and then use the following method:
+
+#+begin_src typescript
+  const canvas = <HTMLCanvasElement>document.getElementById("canvas");
+  const image = canvas.toDataURL("image/jpeg").split(";base64,")[1];
+#+end_src
+
+Then you can use the [[https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-completion][completion API]] with the following ~body~ payload.
+
+#+begin_src js
+JSON.stringify({
+  model: "llava",
+  stream: false,
+  prompt:
+    "What's on this image?",
+  images: [image],
+});
+#+end_src
